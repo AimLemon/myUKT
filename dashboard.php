@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['user']) && !isset($_SESSION['admin'])) {
-    header('Location: login.php');
+    header('Location: admin_login.php');
     exit();
 }
 date_default_timezone_set('Asia/Jakarta');
@@ -83,10 +83,24 @@ $mahasiswa = [];
 if ($isAdmin && isset($_GET['page']) && $_GET['page'] === 'kelola-mahasiswa') {
     include 'koneksi.php';
     $feedback = '';
-    // Query data mahasiswa
-    $result = $conn->query("SELECT nim, nama, email, program_studi, status_aktif FROM Mahasiswa ORDER BY nim ASC");
-    if ($result !== false) {
-        $mahasiswa = $result->fetch_all(MYSQLI_ASSOC);
+    // Ambil keyword pencarian jika ada
+    $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+    // Query data mahasiswa dengan filter jika ada pencarian
+    if ($search !== '') {
+        $stmt = $conn->prepare("SELECT nim, nama, email, program_studi, status_aktif FROM Mahasiswa WHERE nim LIKE ? OR nama LIKE ? ORDER BY nim ASC");
+        $like = "%$search%";
+        $stmt->bind_param("ss", $like, $like);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result !== false) {
+            $mahasiswa = $result->fetch_all(MYSQLI_ASSOC);
+        }
+        $stmt->close();
+    } else {
+        $result = $conn->query("SELECT nim, nama, email, program_studi, status_aktif FROM Mahasiswa ORDER BY nim ASC");
+        if ($result !== false) {
+            $mahasiswa = $result->fetch_all(MYSQLI_ASSOC);
+        }
     }
     // Proses edit data mahasiswa
     if (isset($_POST['edit_mahasiswa'])) {
@@ -277,12 +291,19 @@ if ($isAdmin) {
     // Data dummy untuk mahasiswa dashboard
     $nama = 'Aditya';
     $status_bayar = false;
-    $tagihan = 500000;
-    $jatuh_tempo = '9 September 2025';
-    $riwayat = [
-        ['tanggal' => '7 Aug 2025', 'jumlah' => 500000, 'status' => 'Menunggu..'],
-        ['tanggal' => '13 Jan 2025', 'jumlah' => 500000, 'status' => 'Lunas'],
-    ];
+    if (!isset($tagihan)) $tagihan = 0;
+    if (!isset($jatuh_tempo)) $jatuh_tempo = '-';
+    if (!isset($riwayat)) $riwayat = [];
+    $tagihan = $tagihan ?: 0;
+    $jatuh_tempo = $jatuh_tempo ?: '-';
+    $riwayat = is_array($riwayat) ? $riwayat : [];
+    // Data dummy jika variabel belum diisi
+    if (empty($riwayat)) {
+        $riwayat = [
+            ['tanggal' => '7 Aug 2025', 'jumlah' => 500000, 'status' => 'Menunggu..'],
+            ['tanggal' => '13 Jan 2025', 'jumlah' => 500000, 'status' => 'Lunas'],
+        ];
+    }
 }
 // ===================== END AMBIL DATA ADMIN =====================
 
@@ -492,7 +513,7 @@ if (!isset($_GET['page']) || $_GET['page'] === 'home') {
                 </li>
                 <?php endif; ?>
                 <li class="nav-item mt-4">
-                    <a class="nav-link" href="login.php"><i class="bi bi-box-arrow-left me-2"></i>Keluar</a>
+                    <a class="nav-link" href="tampilan.php"><i class="bi bi-box-arrow-left me-2"></i>Keluar</a>
                 </li>
             </ul>
         </nav>
@@ -582,6 +603,11 @@ if (!isset($_GET['page']) || $_GET['page'] === 'home') {
                     <div class="bg-white p-4 rounded shadow-sm">
                         <form class="d-flex mb-3" method="get" action="dashboard.php">
                             <input type="hidden" name="page" value="kelola-mahasiswa">
+                            <input type="text" class="form-control me-2" name="search" placeholder="Cari Nama atau NIM" value="<?= isset($_GET['search']) ? htmlspecialchars($_GET['search']) : '' ?>" autocomplete="off">
+                            <button class="btn btn-primary" type="submit">Cari</button>
+                            <?php if (isset($_GET['search']) && $_GET['search'] !== ''): ?>
+                                <a href="dashboard.php?page=kelola-mahasiswa" class="btn btn-secondary ms-2">Reset</a>
+                            <?php endif; ?>
                         </form>
                         <table class="table align-middle">
                             <thead>
@@ -913,8 +939,7 @@ if (!isset($_GET['page']) || $_GET['page'] === 'home') {
                                 $stmt = $conn->prepare("SELECT id_mahasiswa, semester, email FROM Mahasiswa WHERE semester = ? AND status_aktif = 'aktif'");
                                 $stmt->bind_param("i", $semester_filter);
                                 $stmt->execute();
-                                $result = $stmt->get_result();
-                                $students = $result->fetch_all(MYSQLI_ASSOC);
+                                $students = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                 $stmt->close();
                                 if (empty($students)) {
                                     throw new Exception('Tidak ada mahasiswa yang cocok dengan filter semester.');
@@ -1360,7 +1385,7 @@ if (!isset($_GET['page']) || $_GET['page'] === 'home') {
                     <h3 class="mb-3"><i class="bi bi-person me-2"></i>Profil</h3>
                     <div class="bg-white p-4 rounded shadow-sm d-flex flex-wrap align-items-center" style="min-height:340px;">
                         <div class="me-4 mb-3" style="min-width:180px;">
-                            <div class="bg-light d-flex align-items-center justify-content-center" style="width:180px; height:180px; border-radius:1.2rem; border:2px solid #b2e5df;">
+                            <div class="bg-light d-flex align-itemscenter justify-content-center" style="width:180px; height:180px; border-radius:1.2rem; border:2px solid #b2e5df;">
                                 <?php if ($adminPhoto): ?>
                                     <img src="<?= htmlspecialchars($adminPhoto) ?>" alt="Foto Profil" class="rounded-circle" style="width:100%; height:100%; object-fit:cover;">
                                 <?php else: ?>
@@ -1425,45 +1450,21 @@ if (!isset($_GET['page']) || $_GET['page'] === 'home') {
                 </div>
             </div>
             <script>
-            const showBtn = document.getElementById('
-        <!-- Blok Statistik Cepat hanya untuk Home Admin sudah dipindahkan ke atas, tidak perlu di sini lagi -->
-        <!-- Jika ingin menambah konten khusus admin di halaman lain, tambahkan di sini -->
-    <?php endif; ?>
-
-    <?php if (!$status): ?>
-        <div class="d-flex align-items-center mb-2">
-            <span class="status-badge"><i class="bi bi-x-circle-fill"></i></span>
-            <span class="fs-4 fw-bold text-danger">Belum Bayar</span>
-        </div>
-        <div class="mb-3">Tagihan: <b>Rp <?= number_format($tagihan,0,',','.') ?></b> - Jatuh Tempo: <b><?= $jatuh_tempo ?></b></div>
-        <div class="d-flex gap-2">
-            <button class="btn btn-primary">Bayar Sekarang</button>
-            <button class="btn btn-outline-primary">Lihat Tagihan</button>
-            <button class="btn btn-outline-primary">Unduh PDF</button>
-        </div>
-    <?php else: ?>
-        <div class="d-flex align-items-center mb-2">
-            <span class="status-badge lunas"><i class="bi bi-check-circle-fill"></i></span>
-            <span class="fs-4 fw-bold text-success">Lunas</span>
-        </div>
-        <div class="mb-3">Tagihan: <b>Rp <?= number_format($tagihan,0,',','.') ?></b> - Jatuh Tempo: <b><?= $jatuh_tempo ?></b></div>
-    <?php endif; ?>
-
-    <div class="riwayat-box">
-        <div class="riwayat-title">Riwayat Singkat</div>
-        <table class="table table-borderless mb-1">
-            <tbody>
-            <?php foreach ($riwayat as $row): ?>
-                <tr>
-                    <td><?= $row['tanggal'] ?></td>
-                    <td>Rp <?= number_format($row['jumlah'],0,',','.') ?></td>
-                    <td><?= $row['status'] ?></td>
-                </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
-        <a href="#" class="text-decoration-underline text-primary" style="font-size:0.95rem;">Lainnya...</a>
+            const showBtn = document.getElementById('showAdminPass');
+            const passField = document.getElementById('adminPassField');
+            let passVisible = false;
+            showBtn.addEventListener('click', function() {
+                passVisible = !passVisible;
+                passField.textContent = passVisible ? '<?= htmlspecialchars($adminPassword) ?>' : '**********';
+                this.classList.toggle('bi-eye', passVisible);
+                this.classList.toggle('bi-eye-slash', !passVisible);
+            });
+            </script>
+            <?php endif; ?>
+        <!-- ===================== END MAIN CONTENT ===================== -->
     </div>
+</div>
+
 <script>
 function hapusTagihan(id, row) {
     if (!confirm('Hapus tagihan ini?')) return;

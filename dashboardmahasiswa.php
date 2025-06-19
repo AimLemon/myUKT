@@ -351,7 +351,7 @@ if ($q->fetch()) {
                     <a class="nav-link<?= (isset($_GET['page']) && $_GET['page'] === 'riwayat') ? ' active' : '' ?>" href="dashboardmahasiswa.php?page=riwayat"><i class="bi bi-clock-history me-2"></i>Riwayat Pembayaran</a>
                 </li>
                 <li class="nav-item mt-4">
-                    <a class="nav-link" href="user_login.php"><i class="bi bi-box-arrow-left me-2"></i>Keluar</a>
+                    <a class="nav-link" href="tampilan.php"><i class="bi bi-box-arrow-left me-2"></i>Keluar</a>
                 </li>
             </ul>
         </nav>
@@ -834,6 +834,18 @@ if ($q->fetch()) {
                                             <div><span class="text-secondary">NIM</span> : <b><?= htmlspecialchars($profil['nim']) ?></b></div>
                                             <div><span class="text-secondary">Program studi</span> : <?= htmlspecialchars($profil['program_studi']) ?></div>
                                             <div><span class="text-secondary">Status</span> : <?= htmlspecialchars($profil['status_aktif']) ?></div>
+                                            <?php
+                                            // Info UKT & Semester (format singkat)
+                                            if (!empty($riwayat)) {
+                                                $last = $riwayat[0];
+                                                echo '<div>ukt: ' . htmlspecialchars($last['semester']) . '</div>';
+                                                echo '<div>semester: ' . htmlspecialchars($last['semester']) . '</div>';
+                                            } elseif (!empty($tagihan_aktif)) {
+                                                $aktif = $tagihan_aktif[0];
+                                                echo '<div>ukt: ' . htmlspecialchars($aktif['semester']) . '</div>';
+                                                echo '<div>semester: ' . htmlspecialchars($aktif['semester']) . '</div>';
+                                            }
+                                            ?>
                                         </div>
                                         <div class="col-md-6">
                                             <div><i class="bi bi-envelope me-2"></i><?= htmlspecialchars($profil['email']) ?>
@@ -954,3 +966,4 @@ if (window.innerWidth < 768) setSidebar(false);
 </script>
 </body>
 </html>
+```
